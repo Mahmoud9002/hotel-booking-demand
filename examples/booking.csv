@@ -1,2 +1,0 @@
-LeadTime,ArrivalDateYear,ArrivalDateWeekNumber,ArrivalDateDayOfMonth,StaysInWeekendNights,StaysInWeekNights,Adults,Children,Babies,IsRepeatedGuest,PreviousCancellations,PreviousBookingsNotCanceled,ArrivalDateMonth,Meal,Country,MarketSegment,DistributionChannel,ReservedRoomType,Agent,Company,CustomerType
-45,2017,28,12,1,3,2,0,0,0,0,0,July,BB,PRT,Online TA,TA/TO,A,9,NULL,Transient

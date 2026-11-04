@@ -1,1 +1,0 @@
-"""Hotel booking demand models."""

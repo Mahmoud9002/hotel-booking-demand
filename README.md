@@ -45,7 +45,7 @@ Additional libraries may be added as the project develops.
 - [ ] Exploratory data analysis completed.
 - [ ] Data cleaning and preprocessing implemented.
 - [ ] Regression baseline evaluated.
-- [x] Classification baseline implemented; reproducible training and validation outputs in `outputs/classification/`.
+- [x] Classification baseline evaluated; metrics and confusion matrix in `outputs/`.
 - [ ] Clustering baseline evaluated.
 - [ ] Preliminary leakage audit documented.
 - [ ] Milestone 1 report completed.
@@ -57,45 +57,39 @@ The project will use documented preprocessing procedures, fixed random seeds whe
 
 ## 6. Classification — Milestone 1
 
-Omar Momen Ahmed (24p0036): one untuned Logistic Regression baseline for
-`IsCanceled`, with a prior-probability dummy comparison. This contribution covers
-classification only; the checklist above remains a team responsibility.
+Omar Momen Ahmed (24p0036): untuned Logistic Regression to predict `IsCanceled`
+(1 = canceled). `src/classification.py` reuses `make_preprocessor` from the team's
+existing `src/PreProcessing.py`: median imputation + RobustScaler for numeric
+inputs, most-frequent imputation + one-hot encoding for categories, and imputation
+for the repeat-guest binary flag. Fitted preprocessing uses training rows only.
 
-Run these commands **from the repository root** with Python 3.12:
+From the repository root (Python 3.12):
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m src.classification train
-python -m src.classification predict --input examples/booking.csv
-python -m unittest discover -s tests -v
+python src/classification.py
 ```
 
-`requirements.txt` pins the direct project dependencies. For the complete versions
-used in the recorded run, install `requirements-lock.txt` instead (Python 3.12).
-
-The example is a manually constructed booking for demonstrating the input schema,
-not a reserved test row. Prediction loads the fitted model without retraining.
-All 21 selected columns are required; missing cell values and unseen categories
-are supported. Extra columns, including the target, are ignored.
-
-- [Experiment report, metrics and leakage audit](outputs/classification/report.md)
-- [Arabic walkthrough](docs/classification_explained_ar.md)
-- [Validation plots](outputs/classification/validation_plots.png)
-- Training entry point: `src/classification.py`.
-- Reusable fitted pipeline: `artifacts/classification/logistic_regression.joblib`.
-- Locked split membership: `artifacts/classification/split_manifest.csv` (zero-based
-  row positions; valid only for the dataset SHA-256 in `metadata.json`).
-
-Split: approximately 60/20/20 by identical-input groups, seed 42; three-fold grouped
-CV on **training only**. The **final test is reserved and never evaluated in Milestone 1**.
-The model and all learned imputation/scaling/encoding parameters use training rows
-only. Model parameters and the 0.50 threshold are not tuned. See the report for
-booking-time assumptions, conservative feature exclusions and limitations.
-
-Training regenerates `outputs/classification/` and `artifacts/classification/`.
-Keep the dataset, seed and split manifest unchanged for Milestone 2. Model artifacts
-are intentionally gitignored and should be excluded from the submission ZIP;
-recreate them with the training command. Only load trusted joblib artifacts.
-Existing regression/clustering scripts are outside this contribution's validation.
+- Results: [metrics](outputs/classification_metrics.csv) and
+  [confusion matrix](outputs/classification_confusion_matrix.png).
+- Validation accuracy is 78.50%, F1 is 71.81%, and recall is 66.43%: the untuned
+  baseline identifies about two-thirds of cancellations at the fixed threshold.
+- Approximately 60/20/20 split by identical-input groups, seeds 42/43, with three-fold
+  grouped CV inside training only. Original split membership is preserved; the
+  final test is never evaluated in Milestone 1. Threshold is fixed at 0.50, with
+  no tuning. Average precision summarizes the precision–recall curve.
+- Prediction point: initial reservation. Exclude the target, ReservationStatus,
+  ReservationStatusDate, AssignedRoomType, BookingChanges and DaysInWaitingList
+  because they reveal the outcome or later events. Conservatively exclude ADR,
+  DepositType, RequiredCarParkingSpaces and TotalOfSpecialRequests because their
+  initial-booking values are not verified. Retained reservation details are assumed
+  available initially; H2 is not a versioned snapshot. The split is not chronological.
+- Agent/Company are categorical IDs. The script trims raw strings and normalizes
+  missing markers before applying the shared preprocessor.
+- Fitted pipeline, dataset fingerprint and split manifest are saved locally under
+  `artifacts/classification/`, excluded from Git/submission ZIP. The pipeline expects
+  the cleaned inputs returned by `load_data()`. Re-run the script to regenerate.
+- Milestone 2: compare additional classifiers, tune on development data, assess
+  PCA/LDA and integrate inference before evaluating the reserved test.
