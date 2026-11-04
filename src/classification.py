@@ -21,6 +21,7 @@ from sklearn.model_selection import GroupKFold, GroupShuffleSplit, cross_validat
 from sklearn.pipeline import Pipeline
 
 from PreProcessing import make_preprocessor
+from clustring import load_and_clean_data
 
 ROOT = Path(__file__).resolve().parents[1]
 NUMERICAL_COLUMNS = [
@@ -40,21 +41,6 @@ SCORING = {
 }
 
 
-def load_data():
-    df = pd.read_csv(ROOT / "data/H2.csv", dtype={"Agent": "string", "Company": "string"})
-    # Only trim raw input and recognize missing markers here. All learned
-    # imputation, encoding and scaling use the team's existing preprocessor.
-    for column in ONE_HOT_COLUMNS:
-        values = df[column].astype("string").str.strip()
-        values = values.mask(values.str.upper().isin(["", "NULL", "NAN", "NONE", "N/A"]))
-        if column in ("Agent", "Company"):
-            values = values.str.replace(r"^(\d+)\.0+$", r"\1", regex=True)
-        df[column] = values.astype(object).where(values.notna(), np.nan)
-    if df["IsCanceled"].isna().any() or not df["IsCanceled"].isin([0, 1]).all():
-        raise ValueError("IsCanceled must contain only 0 or 1.")
-    return df
-
-
 def build_model():
     return Pipeline([
         ("preprocessor", make_preprocessor(
@@ -68,11 +54,18 @@ def build_model():
 
 
 def main():
-    df = load_data()
+    df = load_and_clean_data(ROOT / "data/H2.csv")
+    if df["IsCanceled"].isna().any() or not df["IsCanceled"].isin([0, 1]).all():
+        raise ValueError("IsCanceled must contain only 0 or 1.")
     X, y = df[FEATURES], df["IsCanceled"]
     # Keep the original feature order and seeds so the reserved test is unchanged.
     # Identical inputs stay together, even if their targets differ.
-    groups = pd.util.hash_pandas_object(X, index=False).to_numpy()
+    # The shared loader now makes Undefined channels missing. For split keys only,
+    # retain their original label; model inputs still use the team's cleaned values.
+    split_keys = X.copy()
+    channels = ["MarketSegment", "DistributionChannel"]
+    split_keys[channels] = split_keys[channels].fillna("Undefined")
+    groups = pd.util.hash_pandas_object(split_keys, index=False).to_numpy()
     development, test = next(GroupShuffleSplit(
         n_splits=1, test_size=0.2, random_state=42,
     ).split(X, groups=groups))
@@ -131,7 +124,7 @@ def main():
         "dataset_sha256": hashlib.sha256((ROOT / "data/H2.csv").read_bytes()).hexdigest(),
         "features": FEATURES, "seed": 42, "threshold": 0.5, "test_evaluated": False,
         "split_rows": {"train": len(train), "validation": len(validation), "test": len(test)},
-        "preprocessing": "src/PreProcessing.py; call load_data() for raw CSV cleanup",
+        "preprocessing": "src/PreProcessing.py; clustring.load_and_clean_data(path) for raw CSV cleanup",
     }
     (artifacts / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
     print(results.round(4))

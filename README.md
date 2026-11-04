@@ -74,22 +74,26 @@ python src/classification.py
 
 - Results: [metrics](outputs/classification_metrics.csv) and
   [confusion matrix](outputs/classification_confusion_matrix.png).
-- Validation accuracy is 78.50%, F1 is 71.81%, and recall is 66.43%: the untuned
+- Validation accuracy is 78.74%, F1 is 72.22%, and recall is 67.05%: the untuned
   baseline identifies about two-thirds of cancellations at the fixed threshold.
 - Approximately 60/20/20 split by identical-input groups, seeds 42/43, with three-fold
   grouped CV inside training only. Original split membership is preserved; the
   final test is never evaluated in Milestone 1. Threshold is fixed at 0.50, with
   no tuning. Average precision summarizes the precision–recall curve.
+  Split keys retain the original `Undefined` channel label to preserve the reserved
+  rows; model inputs use the shared loader's missing-value representation.
 - Prediction point: initial reservation. Exclude the target, ReservationStatus,
   ReservationStatusDate, AssignedRoomType, BookingChanges and DaysInWaitingList
   because they reveal the outcome or later events. Conservatively exclude ADR,
   DepositType, RequiredCarParkingSpaces and TotalOfSpecialRequests because their
   initial-booking values are not verified. Retained reservation details are assumed
   available initially; H2 is not a versioned snapshot. The split is not chronological.
-- Agent/Company are categorical IDs. The script trims raw strings and normalizes
-  missing markers before applying the shared preprocessor.
+- Agent/Company are categorical IDs. Raw loading and cleanup directly reuse the
+  team's `load_and_clean_data` in `src/clustring.py`; its strings are trimmed and
+  NULL/Undefined/nan markers become missing. No separate cleanup is implemented.
+  `dataPreparation.py` remains the team's standalone inspection script.
 - Fitted pipeline, dataset fingerprint and split manifest are saved locally under
   `artifacts/classification/`, excluded from Git/submission ZIP. The pipeline expects
-  the cleaned inputs returned by `load_data()`. Re-run the script to regenerate.
+  the cleaned inputs returned by `load_and_clean_data(path)`. Re-run the script to regenerate.
 - Milestone 2: compare additional classifiers, tune on development data, assess
   PCA/LDA and integrate inference before evaluating the reserved test.
