@@ -1,79 +1,38 @@
-
+import joblib
+from PreProcessing import make_preprocessor
 import pandas as pd
-
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-
-from preprocessing import make_preprocessor
-
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 df = pd.read_csv("../data/H2.csv")
 
-numerical_columns = [
-    "LeadTime", "ArrivalDateYear", "ArrivalDateWeekNumber",
-    "ArrivalDateDayOfMonth", "StaysInWeekendNights",
-    "StaysInWeekNights", "Adults", "Children", "Babies",
-    "PreviousCancellations", "PreviousBookingsNotCanceled",
-    "RequiredCarParkingSpaces", "TotalOfSpecialRequests"
-]
+col_drop = ['ADR', 'Hotel', 'ReservationStatus', 'ReservationStatusDate', 'Agent', 'Country', 'ArrivalDateYear']
+features = df.drop(columns=col_drop, errors="ignore")
+target = df["ADR"]
 
-one_hot_columns = [
-    "Hotel", "ArrivalDateMonth", "Meal", "Country",
-    "MarketSegment", "DistributionChannel", "ReservedRoomType",
-    "DepositType", "CustomerType"
-]
+numerical_columns = features.select_dtypes(include="number").columns.tolist()
+categorical_columns = features.select_dtypes(exclude="number").columns.tolist()
+features_train, features_test, target_train, target_test = train_test_split(features, target, test_size=0.2, random_state=42)
+preprocessor = make_preprocessor(numerical_columns, categorical_columns)
+linear_regression = Pipeline([("preprocessor", preprocessor), ("regressor", LinearRegression())])
+linear_regression.fit(features_train, target_train)
 
-binary_columns = ["IsRepeatedGuest"]
+target_pred = linear_regression.predict(features_test)
 
-features = numerical_columns + one_hot_columns + binary_columns
+meanSquared = mean_squared_error(target_test, target_pred)
+meanAbsolute = mean_absolute_error(target_test, target_pred)
+r2 = r2_score(target_test, target_pred)
+print("Mean squared error: " , meanSquared)
+print("Mean absolute error: " , meanAbsolute)
+print("R2 score: " , r2)
 
-X = df[features]
-y = df["ADR"]
+#to save the trained model to the Artifact folder
+joblib.dump(linear_regression, "../artifacts/regression_pipeline.joblib")
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-
-models = {
-    "Linear Regression": LinearRegression(),
-    "Decision Tree": DecisionTreeRegressor(max_depth=10, random_state=42),
-    "Random Forest": RandomForestRegressor(
-        n_estimators=100, max_depth=15, random_state=42, n_jobs=-1
-    )
-}
-
-results = []
-
-for name, model in models.items():
-
-    pipeline = Pipeline([
-        ("preprocessor", make_preprocessor(
-            numerical_columns,
-            one_hot_columns,
-            binary_columns
-        )),
-        ("model", model)
-    ])
-
-    pipeline.fit(X_train, y_train)
-    predictions = pipeline.predict(X_test)
-
-    mae = mean_absolute_error(y_test, predictions)
-    mse = mean_squared_error(y_test, predictions)
-    rmse = mse ** 0.5
-    r2 = r2_score(y_test, predictions)
-
-    results.append([name, mae, mse, rmse, r2])
-
-results_df = pd.DataFrame(
-    results,
-    columns=["Model", "MAE", "MSE", "RMSE", "R2"]
-)
-
-print(results_df)
-
-results_df.to_csv("../reports/regression_results.csv", index=False)
+metrics_df = pd.DataFrame({
+    "Metric": ["MSE", "MAE", "R2"],
+    "Score": [meanSquared, meanAbsolute, r2]
+})
+metrics_df.to_csv("../outputs/regression_metrics.csv", index=False)

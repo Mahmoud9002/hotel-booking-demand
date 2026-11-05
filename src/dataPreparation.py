@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 df = pd.read_csv("../data/H2.csv")
+print(df.columns.tolist())
 
 print(df.shape)
 
@@ -13,12 +14,12 @@ print(df.describe())
 
 print(df.isnull().sum())
 
-#agent feature cant accept duplicates
-
 print(df.duplicated().sum())
-
-#print(df["IsCanceled"].value_counts())
 numeric_columns = df.select_dtypes(include='number').columns
+
+categorical_columns = df.select_dtypes(include=["str", "category"]).columns
+print("category columns: ", categorical_columns)
+print("numerical columns: ", numeric_columns)
 
 for column in numeric_columns:
     Q1 = df[column].quantile(0.25)
@@ -35,3 +36,5 @@ for column in numeric_columns:
     print("Lower bound:", lower_bound)
     print("Upper bound:", upper_bound)
     print("Number of potential outliers:", len(outliers))
+
+
